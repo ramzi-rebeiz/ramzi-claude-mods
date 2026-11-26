@@ -28,6 +28,8 @@ test('the Activity pane shows a running tool, then counts the turn as done', asy
   on('turn.complete', () => ({ text: 'answered' }))
   on('ui.status', () => ({ value: undefined }))
   on('ui.panes', () => ({ value: [] }))
+  on('session.surfaces', () => ({ value: [] }))
+  const session = mock.session(on)
 
   await $.turn.start({ text: 'commit the fix', turnId: 't1' })
   const call = $.tool.call({ tool: 'Bash', tool_use_id: 'u1', command: 'git commit -m "Fix the gateway"', description: 'commit the gateway fix' })
@@ -57,6 +59,11 @@ test('the Activity pane shows a running tool, then counts the turn as done', asy
 
   const done = await $.command.run({ command: 'done', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
   expect(done.text).toMatch(/1 tools · 1 commit · commit the fix/)
+
+  // With no surface attached (a Remote Control session) the summary goes to the transcript as a notice row.
+  const notes = session.appended().filter(r => r.door === 'note')
+  expect(notes, 'one notice row for the finished turn').toHaveLength(1)
+  expect(JSON.stringify(notes[0]?.message)).toMatch(/✓ turn 1 .*1 tools · 1 commit/)
 })
 
 test('verdicts follow the counts against origin and the upstream', () => {

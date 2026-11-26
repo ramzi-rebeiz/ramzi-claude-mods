@@ -26,10 +26,12 @@ function startTicker($: EngineInterface): void {
   ticker = $.clock.every(1000, () => {
     void (async () => {
       await update($, tick, n => n + 1)
-      const [t, runs, now] = await Promise.all([readTurn($), read($, running), $.clock.now()])
+      const [t, runs, now, n] = await Promise.all([readTurn($), read($, running), $.clock.now(), read($, tick)])
       if (!t || t.endedAt !== undefined) return
       const last = runs[runs.length - 1]
-      $.ui.status(`⟳ ${fmtMs(now - t.startedAt)} · ${last ? cut(last.label, 60) : 'thinking…'}`)
+      const line = `⟳ ${fmtMs(now - t.startedAt)} · ${last ? cut(last.label, 60) : 'thinking…'}`
+      $.ui.status(line)
+      if (n % HEARTBEAT_S === 0 && (await hasNoSurface($))) await notice($, `${line} · ${t.tools.length} calls done`)
     })()
   })
 }
@@ -102,6 +104,30 @@ export async function startActivity($: EngineInterface): Promise<void> {
   if (t && t.endedAt === undefined) startTicker($)
   void $.ui.open(OPEN)
 }
+
+/**
+ * A Remote Control session attaches no surface, so no pane, band or status
+ * line can draw there; the transcript still reaches the phone. There, and only
+ * there, the mod appends a notice row: a heartbeat while a long turn runs and
+ * a summary when a turn ends.
+ */
+async function hasNoSurface($: EngineInterface): Promise<boolean> {
+  try {
+    return (await $.session.surfaces()).length === 0
+  } catch {
+    return false
+  }
+}
+
+async function notice($: EngineInterface, text: string): Promise<void> {
+  try {
+    await $.session.append({ message: { type: 'system', content: [{ type: 'text', text }] } })
+  } catch {
+    // A session that takes no plugin rows simply shows nothing.
+  }
+}
+
+const HEARTBEAT_S = 120
 
 export function registerActivity(on: On): void {
   on('command.run', { command: 'activity' }, async $ => {
@@ -188,6 +214,7 @@ export function registerActivity(on: On): void {
     stopTicker()
     scheduleRefresh($, 'status')
     $.ui.status(`✓ idle since ${clock(now)}${t ? ` · turn ${t.n} took ${fmtMs(now - t.startedAt)}` : ''}`)
+    if (t && t.endedAt === undefined && (await hasNoSurface($))) await notice($, `✓ turn ${t.n} · ${entryLine({ ...t, endedAt: now, reason: e.reason }, 140)}`)
     return answered
   })
 
