@@ -1,6 +1,6 @@
 {
   "name": "ramzi-panes",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Three compact, collapsible panes: Activity (what Claude is doing now, and a ledger of finished turns), Branches (every repo's branches with a fast-forward verdict against origin's default branch, as a graph) and Files (every repo as a tree, files coloured by the turn that edited them).",
   "types": "./types/index.d.ts",
   "author": {
